@@ -1,0 +1,23 @@
+[project]
+name = "fastapi-lab"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Oleksii Haiduk",email = "Silvestr171@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydentic[email] (>=0.0.1.dev3,<0.0.2)",
+    "fastapi (>=0.116.1,<0.117.0)",
+    "uvicorn (>=0.35.0,<0.36.0)",
+    "pydantic[email] (>=2.11.7,<3.0.0)"
+]
+
+[tool.poetry]
+packages = [{include = "fastapi_lab", from = "src"}]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
