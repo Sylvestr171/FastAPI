@@ -1,6 +1,9 @@
-from fastapi import FastAPI, Path, Query
+from fastapi import FastAPI, Path, Query, HTTPException, Depends, status
 from typing import Annotated, Optional
 from pydantic import BaseModel, Field, EmailStr, HttpUrl
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from db import get_db,Note
 
 app = FastAPI()
 
@@ -24,32 +27,37 @@ print(user)
 # age
 #   ensure this value is greater than or equal to 13 (type=value_error.number.not_ge; limit_value=13)
 
-# Validation error (website is not a valid URL)
-user = User(name="Bob", email="bob@example.com", website="invalid url", age=20)
-print(user)
-# Output: pydantic.error_wrappers.ValidationError: 1 validation error for User
-# website
-#   invalid or missing URL scheme (type=value_error.url.scheme)
+# Valpoetrpoetry 
 
-
-
-class Note(BaseModel):
+class NoteModel(BaseModel):
     name: str
     description: str
     done: bool
 
 @app.get("/api/healthchecker")
-def root():
-    return {"message": "Welcome to FastAPI!"}
+def healthchecker(db: Session = Depends(get_db)):
+    try:
+        # Make request
+        result = db.execute(text("SELECT 1")).fetchone()
+        if result is None:
+            raise HTTPException(status_code=500, detail="Database is not configured correctly")
+        return {"message": "Welcome to FastAPI!"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Error connecting to the database")
 
 @app.get("/notes")
-async def read_notes(skip: int = 0, limit: Annotated [int, Query(le=100, ge=10)] = 10):
-    return {"message": f"Return all notes: skip: {skip}, limit: {limit}"}
+async def read_notes(skip: int = 0, limit: Annotated [int, Query(le=100, ge=10)] = 10, db: Session = Depends(get_db)):
+    notes = db.query(Note).offset(skip).limit(limit).all()
+    return notes
 
 @app.post("/notes")
-async def create_note(note: Note):
-    return {"name": note.name, "description": note.description, "status": note.done}
-
+async def create_note(note: NoteModel, db: Session = Depends(get_db)):
+    new_note = Note(name=note.name, description=note.description, done=note.done)
+    db.add(new_note)
+    db.commit()
+    db.refresh(new_note)
+    return new_note
 
 @app.get("/notes/new")
 async def read_new_notes():
@@ -57,6 +65,9 @@ async def read_new_notes():
 
 
 @app.get("/notes/{note_id}")
-async def read_note(note_id: int = Path(description="The ID of the note to get", gt=0, le=10)):
-    return {"note": note_id}
-
+async def read_note(note_id: int = Path(description="The ID of the note to get", gt=0, le=10),
+                    db: Session = Depends(get_db)):
+    note = db.query(Note).filter(Note.id == note_id).first()
+    if note is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Not found')
+    return note
